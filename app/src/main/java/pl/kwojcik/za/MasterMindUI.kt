@@ -1,5 +1,8 @@
 package pl.kwojcik.za
 
+import androidx.compose.animation.core.LinearEasing
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -8,6 +11,7 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
@@ -22,6 +26,7 @@ import androidx.compose.material3.IconButtonDefaults
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableStateOf
@@ -215,6 +220,16 @@ fun GameRow(
     whenAccepted: (colors: List<GameColor>) -> Unit = {},
     enabled: Boolean = false
 ) {
+    val animationSpec = tween<Float>(easing = LinearEasing, durationMillis = 500)
+    val animateHeight = remember { mutableStateOf(false) }
+    val height by animateFloatAsState(
+        if (animateHeight.value) 50f else 0f,
+        animationSpec = animationSpec,
+        label = ""
+    )
+    animateHeight.value = true
+    print("height was :$height")
+
     val currentRound = remember {
         mutableStateListOf(
             *colors.toTypedArray()
@@ -231,7 +246,7 @@ fun GameRow(
         currentRound[index] = possibleColors[(indexInPossibleColors + 1) % possibleColors.size]
     }
 
-    Row {
+    Row(modifier = Modifier.height(height.dp)) {
         CircularBtn(color = currentRound[0],
             enabled = enabled,
             onClick = { setNextColor(0) })
