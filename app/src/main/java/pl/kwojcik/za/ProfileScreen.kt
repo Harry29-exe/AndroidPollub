@@ -34,6 +34,7 @@ import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.zIndex
+import androidx.navigation.NavController
 import coil.compose.AsyncImage
 
 fun isValidEmail(value: String): Result<Unit> {
@@ -47,8 +48,16 @@ fun isValidEmail(value: String): Result<Unit> {
     return Result.success(Unit)
 }
 
+
 @Composable
-fun ProfileScreen(goToNextScreen: () -> Unit) {
+fun ProfileScreen(navController: NavController) {
+    ProfileView(goToNextScreen = {
+        navController.navigate(Screen.toGame(it))
+    })
+}
+
+@Composable
+fun ProfileView(goToNextScreen: (noOfColors: Int) -> Unit = {}) {
     val name = rememberSaveable { mutableStateOf("") }
     val email = rememberSaveable { mutableStateOf("") }
     val colorNO = rememberSaveable { mutableStateOf("5") }
@@ -105,7 +114,7 @@ fun ProfileScreen(goToNextScreen: () -> Unit) {
 
         Button(
             modifier = Modifier.fillMaxWidth(1f),
-            onClick = goToNextScreen
+            onClick = { goToNextScreen( colorNO.value.toInt()) }
         ) {
             Text(text = "Next")
         }

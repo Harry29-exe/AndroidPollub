@@ -6,6 +6,7 @@ import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
@@ -31,6 +32,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
+import androidx.navigation.NavController
 import okhttp3.internal.toImmutableList
 import kotlin.collections.ArrayList
 import kotlin.random.Random
@@ -107,11 +109,28 @@ data class GameRound(
     }
 }
 
-@Preview(showBackground = true)
 @Composable
-fun MasterMindUI(noOfColors: Int = 5) {
+fun GameScreen(navController: NavController) {
+    val noOfColors = navController.currentBackStackEntry?.savedStateHandle?.get<Int>("noOfColors") ?: 5
+
+    MasterMindUI(
+        noOfColors = noOfColors,
+        logout = {navController.navigate(Screen.toProfile())},
+        goToResult = {
+            navController.navigate(Screen.toResults(it))
+        }
+    )
+}
+
+@Preview
+@Composable
+fun MasterMindUI(
+    noOfColors: Int = 5,
+    logout: () -> Unit = {},
+    goToResult: (result: Int) -> Unit = {}
+) {
     val possibleColors = GameColor.entries.subList(0, noOfColors)
-    var game = remember { Game(noOfColors) }
+    val game = remember { Game(noOfColors) }
 
     val score = remember { mutableIntStateOf(1) }
     val state = remember { mutableStateListOf<GameRound>() }
@@ -148,13 +167,22 @@ fun MasterMindUI(noOfColors: Int = 5) {
                 })
         } else {
             Button(onClick = {
+                val finalResult = score.intValue
                 game.reset()
                 score.intValue = 1
                 state.clear()
                 finished.value = false
+
+                goToResult(finalResult)
             }) {
-               Text(text = "Play again")
+               Text(text = "High score table")
             }
+        }
+
+        Box(modifier = Modifier.fillMaxHeight(0.5f))
+
+        Button(onClick = logout) {
+            Text(text = "Logout")
         }
     }
 }

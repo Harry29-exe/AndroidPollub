@@ -71,5 +71,7 @@ dependencies {
     debugImplementation(libs.androidx.ui.test.manifest)
 
     runtimeOnly("androidx.compose.material:material-icons-extended:1.6.6")
+    implementation("androidx.navigation:navigation-compose:2.7.5")
+    implementation("androidx.navigation:navigation-runtime-ktx:2.7.5")
     implementation(libs.coil.compose)
 }

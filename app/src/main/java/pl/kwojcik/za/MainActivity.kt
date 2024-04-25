@@ -7,16 +7,14 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.tooling.preview.Preview
+import androidx.navigation.NavType
+import androidx.navigation.compose.NavHost
+import androidx.navigation.compose.composable
+import androidx.navigation.compose.rememberNavController
+import androidx.navigation.navArgument
 import pl.kwojcik.za.ui.theme.MyApplicationTheme
-
-enum class Page {
-    PROFILE,
-    GAME
-}
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -34,17 +32,59 @@ class MainActivity : ComponentActivity() {
     }
 }
 
+object Screen {
+    private const val PROFILE = "profile-screen"
+    private const val GAME = "game-screen"
+    private const val RESULTS = "results-screen"
+
+    fun profilePath(): String {
+        return PROFILE
+    }
+
+    fun toProfile(): String {
+        return PROFILE
+    }
+
+    fun gamePath(): String {
+        return "$GAME/{noOfColors}"
+    }
+
+    fun toGame(noOfColors: Int): String {
+        return "$GAME/$noOfColors"
+    }
+
+    fun resultsPath(): String {
+        return "$RESULTS/{result}"
+    }
+
+    fun toResults(result: Int): String {
+        return "$RESULTS/$result"
+    }
+}
 
 @Preview(showBackground = true)
 @Composable
 fun App() {
-    val page =  rememberSaveable{ mutableStateOf(Page.PROFILE) }
+    val navController = rememberNavController()
 
     MyApplicationTheme {
-        if (page.value == Page.PROFILE) {
-            ProfileScreen({page.value = Page.GAME})
-        } else if (page.value == Page.GAME) {
-            MasterMindUI(noOfColors = 5)
+        NavHost(navController = navController, startDestination = Screen.profilePath()) {
+            composable(
+                Screen.profilePath(),
+            ) {
+                ProfileScreen(navController = navController)
+            }
+            composable(Screen.gamePath(),
+                arguments = listOf(navArgument("noOfColors") { type = NavType.IntType })
+            ) {
+                GameScreen(navController = navController)
+            }
+            composable(Screen.resultsPath(),
+                arguments = listOf(navArgument("result") {type = NavType.IntType})
+            ) {
+                ResultScreen(navController = navController)
+            }
+
         }
     }
 }
