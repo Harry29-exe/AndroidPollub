@@ -16,11 +16,16 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.IntOffset
+import androidx.lifecycle.ViewModelProvider
+import androidx.lifecycle.viewmodel.CreationExtras
+import androidx.lifecycle.viewmodel.initializer
+import androidx.lifecycle.viewmodel.viewModelFactory
 import androidx.navigation.NavType
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navArgument
+import pl.kwojcik.za.app.MasterAndApplication
 import pl.kwojcik.za.ui.theme.MyApplicationTheme
 
 class MainActivity : ComponentActivity() {
@@ -36,36 +41,6 @@ class MainActivity : ComponentActivity() {
                 }
             }
         }
-    }
-}
-
-object Screen {
-    private const val PROFILE = "profile-screen"
-    private const val GAME = "game-screen"
-    private const val RESULTS = "results-screen"
-
-    fun profilePath(): String {
-        return PROFILE
-    }
-
-    fun toProfile(): String {
-        return PROFILE
-    }
-
-    fun gamePath(): String {
-        return "$GAME/{noOfColors}"
-    }
-
-    fun toGame(noOfColors: Int): String {
-        return "$GAME/$noOfColors"
-    }
-
-    fun resultsPath(): String {
-        return "$RESULTS/{result}"
-    }
-
-    fun toResults(result: Int): String {
-        return "$RESULTS/$result"
     }
 }
 
@@ -88,7 +63,7 @@ fun App() {
                 ProfileScreen(navController = navController)
             }
             composable(Screen.gamePath(),
-                arguments = listOf(navArgument("noOfColors") { type = NavType.IntType }),
+                arguments = listOf(navArgument("noOfColors") { type = NavType.IntType }, navArgument("playerId") {type = NavType.LongType}),
                 enterTransition = { enterTransition },
                 exitTransition = { exitTransition }
             ) {
@@ -103,5 +78,47 @@ fun App() {
             }
 
         }
+    }
+}
+
+object AppViewModelProvider {
+    val Factory = viewModelFactory {
+        initializer {
+            ProfileViewModel(masterAndApplication().container.playerRepository)
+        }
+    }
+}
+
+fun CreationExtras.masterAndApplication(): MasterAndApplication =
+    (this[ViewModelProvider.AndroidViewModelFactory.APPLICATION_KEY] as MasterAndApplication)
+
+
+object Screen {
+    private const val PROFILE = "profile-screen"
+    private const val GAME = "game-screen"
+    private const val RESULTS = "results-screen"
+
+    fun profilePath(): String {
+        return PROFILE
+    }
+
+    fun toProfile(): String {
+        return PROFILE
+    }
+
+    fun gamePath(): String {
+        return "$GAME/{playerId}/{noOfColors}"
+    }
+
+    fun toGame(playerId: Long, noOfColors: Int): String {
+        return "$GAME/$playerId/$noOfColors"
+    }
+
+    fun resultsPath(): String {
+        return "$RESULTS/{result}"
+    }
+
+    fun toResults(result: Int): String {
+        return "$RESULTS/$result"
     }
 }

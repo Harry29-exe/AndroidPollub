@@ -38,6 +38,7 @@ import androidx.compose.runtime.MutableState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.AbsoluteAlignment
 import androidx.compose.ui.Alignment
@@ -50,33 +51,46 @@ import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.zIndex
+import androidx.lifecycle.ViewModel
+import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavController
 import coil.compose.AsyncImage
 import kotlinx.coroutines.coroutineScope
+import kotlinx.coroutines.launch
+import pl.kwojcik.za.app.Player
+import pl.kwojcik.za.app.PlayerRepository
 
-fun isValidEmail(value: String): Result<Unit> {
-    if (value.isEmpty()) {
-        return Result.failure(IllegalArgumentException("Can not be empty"))
+class ProfileViewModel(
+    private val playerRepository: PlayerRepository
+) : ViewModel() {
+    var playerId = mutableStateOf(0L)
+    val name = mutableStateOf("")
+    val email = mutableStateOf("")
+
+    suspend fun savePlayer() {
+        playerId.value = playerRepository.insert(Player(name.value, email.value))
     }
-    val separatorIndex = value.indexOf("@")
-    if (separatorIndex < 1 || (separatorIndex + 1) >= value.length) {
-        return Result.failure(IllegalArgumentException("Must be valid email"))
-    }
-    return Result.success(Unit)
 }
 
-
 @Composable
-fun ProfileScreen(navController: NavController) {
-    ProfileView(goToNextScreen = {
-        navController.navigate(Screen.toGame(it))
+fun ProfileScreen(
+    navController: NavController,
+    viewModel: ProfileViewModel = viewModel(factory = AppViewModelProvider.Factory)
+) {
+    ProfileView(
+        viewModel = viewModel,
+        goToNextScreen = { playerId, noOfColors ->
+        navController.navigate(Screen.toGame(playerId, noOfColors))
     })
 }
 
 @Composable
-fun ProfileView(goToNextScreen: (noOfColors: Int) -> Unit = {}) {
-    val name = rememberSaveable { mutableStateOf("") }
-    val email = rememberSaveable { mutableStateOf("") }
+fun ProfileView(
+    viewModel: ProfileViewModel,
+    goToNextScreen: (playerId: Long, noOfColors: Int) -> Unit = {_, _ -> })
+{
+    val coroutineScope = rememberCoroutineScope()
+
     val colorNO = rememberSaveable { mutableStateOf("5") }
 
     Column(
@@ -93,7 +107,7 @@ fun ProfileView(goToNextScreen: (noOfColors: Int) -> Unit = {}) {
         Spacer(modifier = Modifier.height(16.dp))
 
         OutlinedTextFieldWithError(
-            value = name,
+            value = viewModel.name,
             validationFn = {
                 if (it.isNotEmpty()) {
                     Result.success(Unit)
@@ -105,7 +119,7 @@ fun ProfileView(goToNextScreen: (noOfColors: Int) -> Unit = {}) {
         )
 
         OutlinedTextFieldWithError(
-            value = email,
+            value = viewModel.email,
             validationFn = { isValidEmail(it) },
             label = "Enter name",
         )
@@ -126,7 +140,12 @@ fun ProfileView(goToNextScreen: (noOfColors: Int) -> Unit = {}) {
 
         Button(
             modifier = Modifier.fillMaxWidth(1f),
-            onClick = { goToNextScreen(colorNO.value.toInt()) }
+            onClick = {
+                coroutineScope.launch {
+                    viewModel.savePlayer()
+                    goToNextScreen(viewModel.playerId.value, colorNO.value.toInt())
+                }
+            }
         ) {
             Text(text = "Next")
         }
@@ -221,9 +240,10 @@ fun AnimatedTitle() {
         font.animateTo(35f, animationSpec = animationSpec)
     }
 
-    Column(modifier = Modifier
-        .height(90.dp)
-        .fillMaxWidth(),
+    Column(
+        modifier = Modifier
+            .height(90.dp)
+            .fillMaxWidth(),
         verticalArrangement = Arrangement.Center,
         horizontalAlignment = Alignment.CenterHorizontally
     )
@@ -234,4 +254,15 @@ fun AnimatedTitle() {
             modifier = Modifier.padding(bottom = 48.dp)
         )
     }
+}
+
+private fun isValidEmail(value: String): Result<Unit> {
+    if (value.isEmpty()) {
+        return Result.failure(IllegalArgumentException("Can not be empty"))
+    }
+    val separatorIndex = value.indexOf("@")
+    if (separatorIndex < 1 || (separatorIndex + 1) >= value.length) {
+        return Result.failure(IllegalArgumentException("Must be valid email"))
+    }
+    return Result.success(Unit)
 }

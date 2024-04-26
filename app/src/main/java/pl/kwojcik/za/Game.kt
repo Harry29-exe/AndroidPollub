@@ -1,8 +1,6 @@
 package pl.kwojcik.za
 
 import androidx.compose.animation.AnimatedVisibility
-import androidx.compose.animation.animateContentSize
-import androidx.compose.animation.core.animateDpAsState
 import androidx.compose.animation.expandVertically
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.ExperimentalFoundationApi
@@ -13,7 +11,6 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
@@ -29,8 +26,8 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.mutableLongStateOf
 import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -40,95 +37,35 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
+import androidx.lifecycle.ViewModel
+import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavController
 import okhttp3.internal.toImmutableList
+import pl.kwojcik.za.app.Result
+import pl.kwojcik.za.app.ResultRepository
 import kotlin.collections.ArrayList
 import kotlin.random.Random
 
-class Game(noOfColors: Int) {
-    private var colors: List<GameColor>;
-    private val availableColors = GameColor.entries
-        .subList(0, noOfColors)
+class GameViewModel(
+    private val resultRepository: ResultRepository
+) : ViewModel() {
+    val lastResultId = mutableLongStateOf(0L)
+    val playerId = mutableLongStateOf(0L)
+    val score = mutableIntStateOf(0)
 
-    init {
-        colors = generateColorCombination(availableColors)
-    }
-
-    fun check(colors: List<GameColor>): GameRound {
-        val list = colors.mapIndexed { index, color ->
-            if (color == this.colors[index]) {
-                ColorCheckStatus.OK
-            } else if (this.colors.contains(color)) {
-                ColorCheckStatus.WRONG_PLACE
-            } else {
-                ColorCheckStatus.WRONG_COLOR
-            }
-        }
-        return GameRound(colors, list)
-    }
-
-    fun reset() {
-        this.colors = this.generateColorCombination(this.availableColors)
-    }
-
-    private fun generateColorCombination(availableColors: List<GameColor>): List<GameColor> {
-        val list = ArrayList<Int>()
-        for (i in 0..3) {
-            while (true) {
-                val index = Random.nextInt(0, availableColors.size)
-                if (!list.contains(index)) {
-                    list.add(index)
-                    break;
-                }
-            }
-        }
-        return list.map {
-            availableColors[it]
-        }
-    }
-}
-
-enum class GameColor(val color: Color) {
-    WHITE(Color.White),
-    RED(Color.Red),
-    GREEN(Color.Green),
-    BLUE(Color.Blue),
-    YELLOW(Color.Yellow),
-    Cyan(Color.Cyan),
-    Magenta(Color.Magenta),
-    DarkGray(Color.DarkGray),
-    LightGray(Color.LightGray),
-    gw(Color.hsv(0.5f, 0.8f, 0.8f)),
-    ;
-}
-
-enum class ColorCheckStatus(val color: Color) {
-    WRONG_COLOR(Color.White),
-    WRONG_PLACE(Color.Yellow),
-    OK(Color.Red)
-}
-
-data class GameRound(
-    val colors: List<GameColor>,
-    val status: List<ColorCheckStatus>
-) {
-    fun isFinished(): Boolean {
-        return status.none { it != ColorCheckStatus.OK }
-    }
-
-    companion object {
-        fun empty(): GameRound {
-            return GameRound(
-                listOf(GameColor.WHITE, GameColor.WHITE, GameColor.WHITE, GameColor.WHITE),
-                listOf(ColorCheckStatus.WRONG_COLOR, ColorCheckStatus.WRONG_COLOR, ColorCheckStatus.WRONG_COLOR, ColorCheckStatus.WRONG_COLOR)
-            )
-        }
+    suspend fun save() {
+        lastResultId.longValue = resultRepository.insert(Result(score.intValue, playerId.longValue))
     }
 }
 
 @Composable
-fun GameScreen(navController: NavController) {
+fun GameScreen(
+    navController: NavController,
+    viewModel: GameViewModel = viewModel(factory = AppViewModelProvider.Factory)
+    ) {
     val noOfColors = navController.currentBackStackEntry?.savedStateHandle?.get<Int>("noOfColors") ?: 5
+    viewModel.playerId.longValue = navController.currentBackStackEntry?.savedStateHandle?.get<Long>("playerId") ?:
+        viewModel.playerId.longValue
 
     MasterMindUI(
         noOfColors = noOfColors,
@@ -314,3 +251,86 @@ fun SmallCircle(color: Color) {
             .border(3.dp, MaterialTheme.colorScheme.outline, CircleShape)
     )
 }
+
+
+class Game(noOfColors: Int) {
+    private var colors: List<GameColor>;
+    private val availableColors = GameColor.entries
+        .subList(0, noOfColors)
+
+    init {
+        colors = generateColorCombination(availableColors)
+    }
+
+    fun check(colors: List<GameColor>): GameRound {
+        val list = colors.mapIndexed { index, color ->
+            if (color == this.colors[index]) {
+                ColorCheckStatus.OK
+            } else if (this.colors.contains(color)) {
+                ColorCheckStatus.WRONG_PLACE
+            } else {
+                ColorCheckStatus.WRONG_COLOR
+            }
+        }
+        return GameRound(colors, list)
+    }
+
+    fun reset() {
+        this.colors = this.generateColorCombination(this.availableColors)
+    }
+
+    private fun generateColorCombination(availableColors: List<GameColor>): List<GameColor> {
+        val list = ArrayList<Int>()
+        for (i in 0..3) {
+            while (true) {
+                val index = Random.nextInt(0, availableColors.size)
+                if (!list.contains(index)) {
+                    list.add(index)
+                    break;
+                }
+            }
+        }
+        return list.map {
+            availableColors[it]
+        }
+    }
+}
+
+enum class GameColor(val color: Color) {
+    WHITE(Color.White),
+    RED(Color.Red),
+    GREEN(Color.Green),
+    BLUE(Color.Blue),
+    YELLOW(Color.Yellow),
+    Cyan(Color.Cyan),
+    Magenta(Color.Magenta),
+    DarkGray(Color.DarkGray),
+    LightGray(Color.LightGray),
+    gw(Color.hsv(0.5f, 0.8f, 0.8f)),
+    ;
+}
+
+enum class ColorCheckStatus(val color: Color) {
+    WRONG_COLOR(Color.White),
+    WRONG_PLACE(Color.Yellow),
+    OK(Color.Red)
+}
+
+data class GameRound(
+    val colors: List<GameColor>,
+    val status: List<ColorCheckStatus>
+) {
+    fun isFinished(): Boolean {
+        return status.none { it != ColorCheckStatus.OK }
+    }
+
+    companion object {
+        fun empty(): GameRound {
+            return GameRound(
+                listOf(GameColor.WHITE, GameColor.WHITE, GameColor.WHITE, GameColor.WHITE),
+                listOf(ColorCheckStatus.WRONG_COLOR, ColorCheckStatus.WRONG_COLOR, ColorCheckStatus.WRONG_COLOR, ColorCheckStatus.WRONG_COLOR)
+            )
+        }
+    }
+}
+

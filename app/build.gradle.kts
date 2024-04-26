@@ -1,6 +1,7 @@
 plugins {
     alias(libs.plugins.androidApplication)
     alias(libs.plugins.jetbrainsKotlinAndroid)
+    id("com.google.devtools.ksp")
 }
 
 android {
@@ -74,4 +75,11 @@ dependencies {
     implementation("androidx.navigation:navigation-compose:2.7.5")
     implementation("androidx.navigation:navigation-runtime-ktx:2.7.5")
     implementation(libs.coil.compose)
+
+    //consumeAsStateWithLifecycle
+    implementation("androidx.lifecycle:lifecycle-runtime-compose:2.6.2")
+    //Room
+    implementation("androidx.room:room-runtime:2.6.1")
+    ksp("androidx.room:room-compiler:2.6.1")
+    implementation("androidx.room:room-ktx:2.6.1")
 }
