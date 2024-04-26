@@ -1,9 +1,11 @@
 package pl.kwojcik.za
 
-import androidx.compose.animation.core.LinearEasing
-import androidx.compose.animation.core.animateFloatAsState
-import androidx.compose.animation.core.tween
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.animateContentSize
+import androidx.compose.animation.core.animateDpAsState
+import androidx.compose.animation.expandVertically
 import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Box
@@ -26,6 +28,7 @@ import androidx.compose.material3.IconButtonDefaults
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateListOf
@@ -112,6 +115,15 @@ data class GameRound(
     fun isFinished(): Boolean {
         return status.none { it != ColorCheckStatus.OK }
     }
+
+    companion object {
+        fun empty(): GameRound {
+            return GameRound(
+                listOf(GameColor.WHITE, GameColor.WHITE, GameColor.WHITE, GameColor.WHITE),
+                listOf(ColorCheckStatus.WRONG_COLOR, ColorCheckStatus.WRONG_COLOR, ColorCheckStatus.WRONG_COLOR, ColorCheckStatus.WRONG_COLOR)
+            )
+        }
+    }
 }
 
 @Composable
@@ -127,6 +139,7 @@ fun GameScreen(navController: NavController) {
     )
 }
 
+@OptIn(ExperimentalFoundationApi::class)
 @Preview
 @Composable
 fun MasterMindUI(
@@ -138,7 +151,7 @@ fun MasterMindUI(
     val game = remember { Game(noOfColors) }
 
     val score = remember { mutableIntStateOf(1) }
-    val state = remember { mutableStateListOf<GameRound>() }
+    val previousRows = remember { mutableStateListOf<GameRound>(GameRound.empty(), GameRound.empty()) }
     val finished = remember { mutableStateOf(false) }
 
     Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.padding(10.dp)) {
@@ -148,34 +161,33 @@ fun MasterMindUI(
             modifier = Modifier.fillMaxWidth(),
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
-            items(state.size) { rowIndex ->
+            items(previousRows.size, key = { it }) { rowIndex ->
                 GameRow(
+                    modifier = Modifier.animateItemPlacement(),
                     possibleColors = possibleColors,
-                    colors = state[rowIndex].colors,
-                    colorsStatus = state[rowIndex].status
+                    enabled = (rowIndex + 1) == previousRows.size,
+                    colors = previousRows[rowIndex].colors,
+                    colorsStatus = previousRows[rowIndex].status,
+                    whenAccepted = {
+                        val gameRound = game.check(it)
+                        previousRows[rowIndex] = gameRound
+                        if (gameRound.isFinished()) {
+                            finished.value = true
+                        } else {
+                            previousRows.add(GameRound.empty())
+                            score.intValue++
+                        }
+                    }
                 )
             }
         }
 
-        if (!finished.value) {
-            GameRow(possibleColors = possibleColors, enabled = true,
-                colors = listOf(GameColor.WHITE, GameColor.WHITE, GameColor.WHITE, GameColor.WHITE),
-                whenAccepted = {
-                    val gameRound = game.check(it)
-                    state.add(gameRound)
-                    if (gameRound.isFinished()) {
-                        finished.value = gameRound.isFinished()
-                    } else {
-                        score.intValue++
-                    }
-
-                })
-        } else {
+        if (finished.value) {
             Button(onClick = {
                 val finalResult = score.intValue
                 game.reset()
                 score.intValue = 1
-                state.clear()
+                previousRows.clear()
                 finished.value = false
 
                 goToResult(finalResult)
@@ -209,6 +221,7 @@ fun CircularBtn(enabled: Boolean, color: GameColor, onClick: () -> Unit) {
 
 @Composable
 fun GameRow(
+    modifier: Modifier,
     possibleColors: List<GameColor>,
     colors: List<GameColor>,
     colorsStatus: List<ColorCheckStatus> = listOf(
@@ -220,15 +233,12 @@ fun GameRow(
     whenAccepted: (colors: List<GameColor>) -> Unit = {},
     enabled: Boolean = false
 ) {
-    val animationSpec = tween<Float>(easing = LinearEasing, durationMillis = 500)
-    val animateHeight = remember { mutableStateOf(false) }
-    val height by animateFloatAsState(
-        if (animateHeight.value) 50f else 0f,
-        animationSpec = animationSpec,
-        label = ""
-    )
-    animateHeight.value = true
-    print("height was :$height")
+    val visible = remember { mutableStateOf(false) }
+    val enterAnimation = expandVertically()
+
+    LaunchedEffect(Unit) {
+        visible.value = true
+    }
 
     val currentRound = remember {
         mutableStateListOf(
@@ -246,7 +256,8 @@ fun GameRow(
         currentRound[index] = possibleColors[(indexInPossibleColors + 1) % possibleColors.size]
     }
 
-    Row(modifier = Modifier.height(height.dp)) {
+    AnimatedVisibility(visible = visible.value, enter = enterAnimation) {
+    Row {
         CircularBtn(color = currentRound[0],
             enabled = enabled,
             onClick = { setNextColor(0) })
@@ -287,6 +298,7 @@ fun GameRow(
                 SmallCircle(color = colorsStatus[3].color)
             }
         }
+    }
     }
 }
 
