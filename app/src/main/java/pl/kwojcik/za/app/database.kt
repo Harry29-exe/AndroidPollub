@@ -44,11 +44,17 @@ interface PlayerDao {
 interface ResultDao {
     @Insert
     suspend fun insert(score: Result): Long
+    @Query("SELECT * FROM results")
+    suspend fun selectAll(): List<Result>
 }
 
 @Dao
 interface PlayerResultDao {
-    @Query("SELECT r.score as score, p.name as playerName FROM results r JOIN players p on (p.id = r.playerId)")
+    @Query("""
+    SELECT r.score as score, p.name as playerName 
+    FROM results r 
+    LEFT JOIN players p on (p.id = r.playerId)
+    """)
     suspend fun getPlayerResults(): List<PlayerResult>
 }
 

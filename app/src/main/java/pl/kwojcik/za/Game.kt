@@ -1,5 +1,6 @@
 package pl.kwojcik.za
 
+import android.util.Log
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.expandVertically
 import androidx.compose.foundation.BorderStroke
@@ -26,11 +27,14 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.MutableIntState
+import androidx.compose.runtime.MutableState
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableLongStateOf
 import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -40,7 +44,9 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavController
+import kotlinx.coroutines.launch
 import okhttp3.internal.toImmutableList
+import okhttp3.internal.wait
 import pl.kwojcik.za.app.Result
 import pl.kwojcik.za.app.ResultRepository
 import kotlin.collections.ArrayList
@@ -49,12 +55,14 @@ import kotlin.random.Random
 class GameViewModel(
     private val resultRepository: ResultRepository
 ) : ViewModel() {
-    val lastResultId = mutableLongStateOf(0L)
     val playerId = mutableLongStateOf(0L)
     val score = mutableIntStateOf(0)
+    val lastScore = mutableIntStateOf(0)
 
     suspend fun save() {
-        lastResultId.longValue = resultRepository.insert(Result(score.intValue, playerId.longValue))
+        lastScore.intValue = score.intValue
+        resultRepository.insert(Result(score.intValue, playerId.longValue))
+        score.intValue = 0
     }
 }
 
@@ -62,16 +70,24 @@ class GameViewModel(
 fun GameScreen(
     navController: NavController,
     viewModel: GameViewModel = viewModel(factory = AppViewModelProvider.Factory)
-    ) {
-    val noOfColors = navController.currentBackStackEntry?.savedStateHandle?.get<Int>("noOfColors") ?: 5
-    viewModel.playerId.longValue = navController.currentBackStackEntry?.savedStateHandle?.get<Long>("playerId") ?:
-        viewModel.playerId.longValue
+) {
+    val noOfColors =
+        navController.currentBackStackEntry?.arguments?.getInt("noOfColors") ?: 5
+    viewModel.playerId.longValue =
+        navController.currentBackStackEntry?.arguments?.getLong("playerId")
+            ?: viewModel.playerId.longValue
+
+    val coroutineScore = rememberCoroutineScope()
 
     MasterMindUI(
+        score = viewModel.score,
         noOfColors = noOfColors,
-        logout = {navController.navigate(Screen.toProfile())},
+        logout = { navController.navigate(Screen.toProfile()) },
         goToResult = {
-            navController.navigate(Screen.toResults(it))
+            coroutineScore.launch {
+                viewModel.save()
+                navController.navigate(Screen.toResults(viewModel.lastScore.intValue))
+            }
         }
     )
 }
@@ -80,15 +96,16 @@ fun GameScreen(
 @Preview
 @Composable
 fun MasterMindUI(
+    score: MutableIntState = mutableIntStateOf(1),
     noOfColors: Int = 5,
     logout: () -> Unit = {},
-    goToResult: (result: Int) -> Unit = {}
+    goToResult: () -> Unit = {}
 ) {
     val possibleColors = GameColor.entries.subList(0, noOfColors)
     val game = remember { Game(noOfColors) }
 
-    val score = remember { mutableIntStateOf(1) }
-    val previousRows = remember { mutableStateListOf<GameRound>(GameRound.empty(), GameRound.empty()) }
+    val previousRows =
+        remember { mutableStateListOf<GameRound>(GameRound.empty()) }
     val finished = remember { mutableStateOf(false) }
 
     Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.padding(10.dp)) {
@@ -111,7 +128,7 @@ fun MasterMindUI(
                         if (gameRound.isFinished()) {
                             finished.value = true
                         } else {
-                            previousRows.add(GameRound.empty())
+                            previousRows.add(GameRound.emptyWithColors(it))
                             score.intValue++
                         }
                     }
@@ -121,15 +138,13 @@ fun MasterMindUI(
 
         if (finished.value) {
             Button(onClick = {
-                val finalResult = score.intValue
                 game.reset()
-                score.intValue = 1
                 previousRows.clear()
                 finished.value = false
 
-                goToResult(finalResult)
+                goToResult()
             }) {
-               Text(text = "High score table")
+                Text(text = "High score table")
             }
         }
 
@@ -194,48 +209,48 @@ fun GameRow(
     }
 
     AnimatedVisibility(visible = visible.value, enter = enterAnimation) {
-    Row {
-        CircularBtn(color = currentRound[0],
-            enabled = enabled,
-            onClick = { setNextColor(0) })
-        CircularBtn(color = currentRound[1],
-            enabled = enabled,
-            onClick = { setNextColor(1) })
-        CircularBtn(color = currentRound[2],
-            enabled = enabled,
-            onClick = { setNextColor(2) })
-        CircularBtn(color = currentRound[3],
-            enabled = enabled,
-            onClick = { setNextColor(3) })
+        Row {
+            CircularBtn(color = currentRound[0],
+                enabled = enabled,
+                onClick = { setNextColor(0) })
+            CircularBtn(color = currentRound[1],
+                enabled = enabled,
+                onClick = { setNextColor(1) })
+            CircularBtn(color = currentRound[2],
+                enabled = enabled,
+                onClick = { setNextColor(2) })
+            CircularBtn(color = currentRound[3],
+                enabled = enabled,
+                onClick = { setNextColor(3) })
 
-        IconButton(
-            onClick = { whenAccepted(currentRound.toImmutableList()) },
-            enabled = isEnabled(),
-            modifier = Modifier.clip(CircleShape),
-            colors = IconButtonDefaults.iconButtonColors(
-                containerColor = Color.Blue,
-                disabledContainerColor = Color.LightGray
-            )
-        ) {
-            Icon(
-                imageVector = Icons.Filled.Check,
-                contentDescription = "OK",
-                tint = Color.White,
-
+            IconButton(
+                onClick = { whenAccepted(currentRound.toImmutableList()) },
+                enabled = isEnabled(),
+                modifier = Modifier.clip(CircleShape),
+                colors = IconButtonDefaults.iconButtonColors(
+                    containerColor = Color.Blue,
+                    disabledContainerColor = Color.LightGray
                 )
-        }
+            ) {
+                Icon(
+                    imageVector = Icons.Filled.Check,
+                    contentDescription = "OK",
+                    tint = Color.White,
 
-        Column {
-            Row {
-                SmallCircle(color = colorsStatus[0].color)
-                SmallCircle(color = colorsStatus[1].color)
+                    )
             }
-            Row {
-                SmallCircle(color = colorsStatus[2].color)
-                SmallCircle(color = colorsStatus[3].color)
+
+            Column {
+                Row {
+                    SmallCircle(color = colorsStatus[0].color)
+                    SmallCircle(color = colorsStatus[1].color)
+                }
+                Row {
+                    SmallCircle(color = colorsStatus[2].color)
+                    SmallCircle(color = colorsStatus[3].color)
+                }
             }
         }
-    }
     }
 }
 
@@ -328,7 +343,24 @@ data class GameRound(
         fun empty(): GameRound {
             return GameRound(
                 listOf(GameColor.WHITE, GameColor.WHITE, GameColor.WHITE, GameColor.WHITE),
-                listOf(ColorCheckStatus.WRONG_COLOR, ColorCheckStatus.WRONG_COLOR, ColorCheckStatus.WRONG_COLOR, ColorCheckStatus.WRONG_COLOR)
+                listOf(
+                    ColorCheckStatus.WRONG_COLOR,
+                    ColorCheckStatus.WRONG_COLOR,
+                    ColorCheckStatus.WRONG_COLOR,
+                    ColorCheckStatus.WRONG_COLOR
+                )
+            )
+        }
+
+        fun emptyWithColors(colors: List<GameColor>): GameRound {
+            return GameRound(
+                colors,
+                listOf(
+                    ColorCheckStatus.WRONG_COLOR,
+                    ColorCheckStatus.WRONG_COLOR,
+                    ColorCheckStatus.WRONG_COLOR,
+                    ColorCheckStatus.WRONG_COLOR
+                )
             )
         }
     }

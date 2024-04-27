@@ -46,6 +46,7 @@ class PlayerRepositoryImpl(
 
 interface ResultRepository {
     suspend fun insert(result: Result): Long
+    suspend fun selectAll(): List<Result>
 }
 
 class ResultRepositoryImpl (
@@ -53,6 +54,10 @@ class ResultRepositoryImpl (
 ) : ResultRepository {
     override suspend fun insert(result: Result): Long {
         return resulDao.insert(result)
+    }
+
+    override suspend fun selectAll(): List<Result> {
+        return resulDao.selectAll()
     }
 }
 

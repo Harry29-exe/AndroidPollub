@@ -1,6 +1,7 @@
 package pl.kwojcik.za
 
 import android.os.Bundle
+import android.util.Log
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.compose.animation.core.EaseIn
@@ -63,10 +64,14 @@ fun App() {
                 ProfileScreen(navController = navController)
             }
             composable(Screen.gamePath(),
-                arguments = listOf(navArgument("noOfColors") { type = NavType.IntType }, navArgument("playerId") {type = NavType.LongType}),
+                arguments = listOf(
+                    navArgument("playerId") {type = NavType.LongType},
+                    navArgument("noOfColors") { type = NavType.IntType },
+                ),
                 enterTransition = { enterTransition },
                 exitTransition = { exitTransition }
             ) {
+                Log.d("Pre-GAmeScreen", "playerId=${it.arguments?.getLong("playerId")}")
                 GameScreen(navController = navController)
             }
             composable(Screen.resultsPath(),
@@ -85,6 +90,12 @@ object AppViewModelProvider {
     val Factory = viewModelFactory {
         initializer {
             ProfileViewModel(masterAndApplication().container.playerRepository)
+        }
+        initializer {
+            GameViewModel(masterAndApplication().container.resultRepository)
+        }
+        initializer {
+            ResultViewModel(masterAndApplication().container.playerResultRepository)
         }
     }
 }
@@ -111,7 +122,7 @@ object Screen {
     }
 
     fun toGame(playerId: Long, noOfColors: Int): String {
-        return "$GAME/$playerId/$noOfColors"
+        return "$GAME/${playerId}/${noOfColors}"
     }
 
     fun resultsPath(): String {

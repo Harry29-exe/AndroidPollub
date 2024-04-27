@@ -1,6 +1,7 @@
 package pl.kwojcik.za
 
 import android.net.Uri
+import android.util.Log
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.PickVisualMediaRequest
 import androidx.activity.result.contract.ActivityResultContracts
@@ -77,19 +78,25 @@ fun ProfileScreen(
     navController: NavController,
     viewModel: ProfileViewModel = viewModel(factory = AppViewModelProvider.Factory)
 ) {
+    val coroutineScope = rememberCoroutineScope()
+
     ProfileView(
         viewModel = viewModel,
-        goToNextScreen = { playerId, noOfColors ->
-        navController.navigate(Screen.toGame(playerId, noOfColors))
-    })
+        goToNextScreen = { noOfColors ->
+            coroutineScope.launch {
+                viewModel.savePlayer()
+                Log.d("ProfileView", "playerId: ${viewModel.playerId.value}")
+                navController.navigate(Screen.toGame(viewModel.playerId.value, noOfColors))
+            }
+        })
 }
 
 @Composable
 fun ProfileView(
     viewModel: ProfileViewModel,
-    goToNextScreen: (playerId: Long, noOfColors: Int) -> Unit = {_, _ -> })
-{
-    val coroutineScope = rememberCoroutineScope()
+    goToNextScreen: (noOfColors: Int) -> Unit = { _ -> }
+) {
+
 
     val colorNO = rememberSaveable { mutableStateOf("5") }
 
@@ -141,10 +148,7 @@ fun ProfileView(
         Button(
             modifier = Modifier.fillMaxWidth(1f),
             onClick = {
-                coroutineScope.launch {
-                    viewModel.savePlayer()
-                    goToNextScreen(viewModel.playerId.value, colorNO.value.toInt())
-                }
+                goToNextScreen(colorNO.value.toInt())
             }
         ) {
             Text(text = "Next")
