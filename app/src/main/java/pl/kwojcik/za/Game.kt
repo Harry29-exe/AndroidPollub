@@ -2,7 +2,11 @@ package pl.kwojcik.za
 
 import android.util.Log
 import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.animateColorAsState
+import androidx.compose.animation.core.tween
 import androidx.compose.animation.expandVertically
+import androidx.compose.animation.scaleIn
+import androidx.compose.animation.scaleOut
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
@@ -187,10 +191,13 @@ fun GameRow(
 ) {
     val visible = remember { mutableStateOf(false) }
     val enterAnimation = expandVertically()
+    val buttonEnterAnimation = scaleIn()
+    val buttonExitAnimation = scaleOut()
 
     LaunchedEffect(Unit) {
         visible.value = true
     }
+
 
     val currentRound = remember {
         mutableStateListOf(
@@ -223,21 +230,27 @@ fun GameRow(
                 enabled = enabled,
                 onClick = { setNextColor(3) })
 
-            IconButton(
-                onClick = { whenAccepted(currentRound.toImmutableList()) },
-                enabled = isEnabled(),
-                modifier = Modifier.clip(CircleShape),
-                colors = IconButtonDefaults.iconButtonColors(
-                    containerColor = Color.Blue,
-                    disabledContainerColor = Color.LightGray
-                )
+            AnimatedVisibility(
+                visible = isEnabled(),
+                enter = buttonEnterAnimation,
+                exit = buttonExitAnimation
             ) {
-                Icon(
-                    imageVector = Icons.Filled.Check,
-                    contentDescription = "OK",
-                    tint = Color.White,
-
+                IconButton(
+                    onClick = { whenAccepted(currentRound.toImmutableList()) },
+                    enabled = isEnabled(),
+                    modifier = Modifier.clip(CircleShape),
+                    colors = IconButtonDefaults.iconButtonColors(
+                        containerColor = Color.Blue,
+                        disabledContainerColor = Color.LightGray
                     )
+                ) {
+                    Icon(
+                        imageVector = Icons.Filled.Check,
+                        contentDescription = "OK",
+                        tint = Color.White,
+
+                        )
+                }
             }
 
             Column {
@@ -257,12 +270,24 @@ fun GameRow(
 
 @Composable
 fun SmallCircle(color: Color) {
+    val startAnimating = remember { mutableStateOf(false) }
+    val animSpec = tween<Color>(durationMillis = 1000)
+    val animatedColor = animateColorAsState(
+        targetValue =
+        if (startAnimating.value) color else Color.White,
+        animationSpec = animSpec
+    )
+
+    LaunchedEffect(key1 = color) {
+        startAnimating.value = true
+    }
+
     Box(
         modifier = Modifier
             .padding(2.dp)
             .size(20.dp)
             .clip(CircleShape)
-            .background(color)
+            .background(animatedColor.value)
             .border(3.dp, MaterialTheme.colorScheme.outline, CircleShape)
     )
 }

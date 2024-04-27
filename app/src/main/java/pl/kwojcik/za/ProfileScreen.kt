@@ -12,10 +12,12 @@ import androidx.compose.animation.core.RepeatMode
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.infiniteRepeatable
 import androidx.compose.animation.core.tween
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -26,7 +28,9 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Create
 import androidx.compose.material.icons.filled.Info
+import androidx.compose.material.icons.filled.Search
 import androidx.compose.material3.Button
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -44,8 +48,11 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.AbsoluteAlignment
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.semantics.Role.Companion.Image
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.tooling.preview.Preview
@@ -128,7 +135,7 @@ fun ProfileView(
         OutlinedTextFieldWithError(
             value = viewModel.email,
             validationFn = { isValidEmail(it) },
-            label = "Enter name",
+            label = "Enter email",
         )
 
         OutlinedTextFieldWithError(
@@ -173,17 +180,24 @@ fun OutlinedTextFieldWithError(
             .onSuccess { value.value = newValue; error.value = null }
             .onFailure { error.value = it }
     }
-
-    OutlinedTextField(
-        modifier = Modifier.fillMaxWidth(),
-        value = internalValue.value,
-        onValueChange = onValueChange,
-        label = { Text(label) },
-        singleLine = true,
-        isError = error.value != null,
-        keyboardOptions = KeyboardOptions(keyboardType = keyboardType),
-        supportingText = { error.value?.message }
-    )
+    Row {
+        OutlinedTextField(
+            modifier = Modifier.fillMaxWidth()
+                .onFocusChanged {
+                    if (it.isFocused) {
+                        onValueChange(internalValue.value)
+                    }
+                },
+            value = internalValue.value,
+            onValueChange = onValueChange,
+            trailingIcon = { if (error.value != null) {Icon(Icons.Filled.Info, "Pick") }},
+            label = { Text(label) },
+            singleLine = true,
+            isError = error.value != null,
+            keyboardOptions = KeyboardOptions(keyboardType = keyboardType),
+            supportingText = { error.value?.message }
+        )
+    }
 }
 
 
@@ -215,20 +229,23 @@ fun ProfileImageWithPicker() {
             Icon(Icons.Filled.Info, "Pick")
         }
 
-        AsyncImage(
-            model = {
-                if (profileImageUri.value != null) {
-                    print(profileImageUri.value)
-                    profileImageUri.value
-                } else
-                    androidx.core.R.drawable.ic_call_answer
-            },
-            contentDescription = "Profile image",
-            modifier = Modifier
-                .width(200.dp)
-                .height(150.dp),
-            contentScale = ContentScale.Fit,
-        )
+        if (profileImageUri.value == null) {
+            Image(
+                modifier = Modifier.width(150.dp).height(150.dp),
+                painter = painterResource(id = R.drawable.baseline_question_mark_24),
+                contentDescription = "Profile image",
+                contentScale = ContentScale.Crop
+            )
+        } else {
+            AsyncImage(
+                model = profileImageUri.value,
+                contentDescription = "Profile image",
+                modifier = Modifier
+                    .width(200.dp)
+                    .height(150.dp),
+                contentScale = ContentScale.Fit,
+            )
+        }
     }
 }
 
